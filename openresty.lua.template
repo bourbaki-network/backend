@@ -1,0 +1,126 @@
+local cjson  = require "cjson"
+local openid = require "resty.openidc"
+local http   = require "resty.http"
+
+-----------------------------------------------------------------------------------------------------------
+-- Call token introspection
+-----------------------------------------------------------------------------------------------------------
+local opts = {
+  redirect_uri                             = "/*",
+  introspection_endpoint                   = "https://{{AUTH_SERVER}}/auth/realms/{{REALM}}/protocol/openid-connect/token/introspect",
+  client_id                                = "{{CLIENT_ID}}",
+  client_secret                            = "{{SECRET}}",
+  redirect_uri_scheme                      = "https",
+  logout_path                              = "/logout",
+  redirect_after_logout_uri                = "https://{{AUTH_SERVER}}/auth/realms/realm/protocol/openid-connect/logout?redirect_uri=https%3A%2F%2setu.co",
+  redirect_after_logout_with_id_token_hint = false,
+  ssl_verify                               ="no",
+  renew_access_token_on_expiry             = false
+}
+
+-- call introspect for OAuth 2.0 Bearer Access Token validation
+local res, err = openid.introspect(opts, nil, "deny")
+ngx.log(ngx.ERR, cjson.encode(res))
+if err then
+  ngx.log(ngx.ERR, "Token introspection error:")
+  ngx.log(ngx.ERR, err)
+  ngx.status = 403
+  ngx.say(err)
+  ngx.exit(ngx.HTTP_FORBIDDEN)
+end
+
+-----------------------------------------------------------------------------------------------------------
+-- Utils
+-----------------------------------------------------------------------------------------------------------
+
+local function get_first(table_or_string)
+  local res = table_or_string
+  if table_or_string and type(table_or_string) == 'table' then
+    res = table_or_string[1]
+  end
+  return res
+end
+
+-- get an OAuth 2.0 bearer access token from the HTTP request
+local function get_bearer_access_token_from_header()
+
+  local err
+  local accept_token_as = "header"
+
+  -- get the access token from the Authorization header
+  local headers = ngx.req.get_headers()
+  local header_name = "Authorization"
+  local header = get_first(headers[header_name])
+
+  if header == nil or header:find(" ") == nil then
+    err = "no Authorization header found"
+    ngx.log(ngx.ERR, err)
+    return nil, err
+  end
+
+  local divider = header:find(' ')
+  if string.lower(header:sub(0, divider - 1)) ~= string.lower("Bearer") then
+    err = "no Bearer authorization header value found"
+    ngx.log(ngx.ERR, err)
+    return nil, err
+  end
+
+  local access_token = header:sub(divider + 1)
+  if access_token == nil then
+    err = "no Bearer access token value found"
+    ngx.log(ngx.ERR, err)
+    return nil, err
+  end
+
+  return access_token, err
+end
+
+local function call_userinfo_endpoint(url, bearer_token)
+
+  local headers = {
+    [
+      "Authorization"
+    ] = "Bearer " .. bearer_token,
+  }
+  local httpc = http.new()
+
+  local response, err = httpc:request_uri(url,
+    {
+        headers = headers,
+        ssl_verify = false,
+        keepalive = false
+    })
+
+  if response.status ~= 200 then
+    err = "response indicates failure, status=" .. response.status .. ", body=" .. response.body
+    return nil, err
+  end
+
+  res = require("cjson.safe").decode(response.body)
+  if not res then
+    err = "JSON decoding failed"
+  end
+
+  return res, err
+end
+
+-----------------------------------------------------------------------------------------------------------
+-- Call user info
+-----------------------------------------------------------------------------------------------------------
+
+local token, err = get_bearer_access_token_from_header()
+if err then
+  ngx.log(ngx.ERR, "Failed to fetch token from header:")
+  ngx.log(ngx.ERR, err)
+  ngx.status = 403
+  ngx.say(err)
+  ngx.exit(ngx.HTTP_FORBIDDEN)
+end
+
+local user_info, user_err = call_userinfo_endpoint("https://{{AUTH_SERVER}}/auth/realms/{{REALM}}/protocol/openid-connect/userinfo", token)
+
+-- set the complete response received from keycloak as headers
+ngx.log(ngx.ERR, cjson.encode(user_info))
+for k, v in pairs(user_info) do
+  ngx.req.set_header(k, v)
+end

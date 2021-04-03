@@ -1,0 +1,71 @@
+version: '3'
+
+services:
+  hasura-db:
+    image: postgres:12
+    volumes:
+      - "hasura-data:/var/lib/postgresql/data"
+    environment:
+      - POSTGRES_PASSWORD=${PGPASSWORD}
+      - POSTGRES_USER=${PGUSER}
+      - POSTGRES_DB=hasura
+    ports:
+      - "5432:5432"
+
+  nginx:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.openresty
+    ports:
+      - "80:80"
+    links:
+      - graphql-engine
+    depends_on:
+      - graphql-engine
+
+  graphql-engine:
+    image: hasura/graphql-engine:v1.3.3
+    ports:
+    - "8080:8080"
+    depends_on:
+    - hasura-db
+    restart: always
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: postgres://${PGUSER}:${PGPASSWORD}@hasura-db/hasura
+      ## enable the console served by server
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      ## enable debugging mode. It is recommended to disable this in production
+      HASURA_GRAPHQL_DEV_MODE: "true"
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
+      ## uncomment next line to set an admin secret
+      HASURA_GRAPHQL_ADMIN_SECRET: ${ADMIN_SECRET}
+      HASURA_GRAPHQL_JWT_SECRET: '{ "type": "RS256", "jwk_url": "https://keycloak:8080/auth/realms/master/protocol/openid-connect/certs" }'
+
+  keycloak:
+    image: jboss/keycloak:latest
+    ports:
+      - "8081:8080"
+    depends_on:
+      - keycloak-db
+    environment:
+      KEYCLOAK_USER: ${KEYCLOAK_USER}
+      KEYCLOAK_PASSWORD: ${KEYCLOAK_PASSWORD}
+      DB_VENDOR: postgres
+      DB_ADDR: keycloak-db
+      DB_USER: ${PGUSER}
+      DB_PASSWORD: ${PGPASSWORD}
+
+  keycloak-db:
+      image: postgres:12
+      volumes:
+        - keycloak-data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_DB: keycloak
+        POSTGRES_USER: ${PGUSER}
+        POSTGRES_PASSWORD: ${PGPASSWORD}
+
+volumes:
+  hasura-data:
+    external: true
+  keycloak-data:
+    external: true

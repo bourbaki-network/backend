@@ -1,0 +1,18 @@
+FROM openresty/openresty:bionic
+
+# install dependencies
+RUN ["luarocks", "install", "lua-resty-session"]
+RUN ["luarocks", "install", "lua-resty-http"]
+RUN ["luarocks", "install", "lua-resty-jwt"]
+RUN ["luarocks", "install", "lua-resty-openidc"]
+
+RUN apt update && \
+	apt install -y fail2ban
+
+RUN service fail2ban restart
+
+# COPY nginx configs that proxies the api server
+COPY nginx-default.conf /etc/nginx/conf.d/default.conf
+COPY openresty.lua /etc/nginx/conf.d/openresty.lua
+
+EXPOSE 80

@@ -9,9 +9,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    links:
-      - graphql-engine
-      - hasura-backend-plus
     depends_on:
       - graphql-engine
       - hasura-backend-plus
@@ -39,10 +36,6 @@ services:
       - "8080:8080"
     depends_on:
       - hasura-db
-      - hasura-backend-plus
-    links:
-      - hasura-db
-      - hasura-backend-plus
     restart: always
     environment:
       HASURA_GRAPHQL_DATABASE_URL: postgres://${PGUSER}:${PGPASSWORD}@hasura-db/hasura
@@ -59,8 +52,7 @@ services:
     image: nhost/hasura-backend-plus:latest
     ports:
       - '3000:3000'
-    links:
-      - hasura-db
+    depends_on:
       - graphql-engine
     restart: always
     environment:

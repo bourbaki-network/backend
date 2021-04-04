@@ -27,8 +27,6 @@ Pass env variables, update `.env`:
 PGPASSWORD="generate-a-password-for-postgres"
 PGUSER="postgres-username"
 ADMIN_SECRET="generate-an-admin-password"
-AUTH_SERVER="auth-dev.setu.co"
-REALM="whatsapp"
 REGION="aws s3 region"
 S3_BUCKET_NAME="aws s3 bucket name"
 AWS_ACCESS_KEY_ID="aws access key"
@@ -72,6 +70,24 @@ cat openresty.lua.template | \
 ```
 
 Build container:
+
+Pass env variables, update `.env`:
+
+```bash
+PGPASSWORD="generate-a-password-for-postgres"
+PGUSER="postgres-username"
+ADMIN_SECRET="generate-an-admin-password"
+KEYCLOAK_USER="main keycloak client name"
+KEYCLOAK_PASSWORD="keycloak master key"
+AUTH_SERVER="keycloak:8080"
+REALM="master"
+CLIENT_ID=${KEYCLOAK_USER}
+SECRET="secret for the main keycloak client"
+```
+
+```
+source .env
+```
 
 ```bash
 docker volume create --name=hasura-data

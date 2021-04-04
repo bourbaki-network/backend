@@ -11,8 +11,10 @@ services:
       - "443:443"
     links:
       - graphql-engine
+      - hasura-backend-plus
     depends_on:
       - graphql-engine
+      - hasura-backend-plus
     environment:
       - CERTBOT_EMAIL=${EMAIL}
       - STAGING=0
@@ -34,9 +36,13 @@ services:
   graphql-engine:
     image: hasura/graphql-engine:v1.3.3
     ports:
-    - "8080:8080"
+      - "8080:8080"
     depends_on:
-    - hasura-db
+      - hasura-db
+      - hasura-backend-plus
+    links:
+      - hasura-db
+      - hasura-backend-plus
     restart: always
     environment:
       HASURA_GRAPHQL_DATABASE_URL: postgres://${PGUSER}:${PGPASSWORD}@hasura-db/hasura
@@ -53,7 +59,8 @@ services:
     image: nhost/hasura-backend-plus:latest
     ports:
       - '3000:3000'
-    depends_on:
+    links:
+      - hasura-db
       - graphql-engine
     restart: always
     environment:

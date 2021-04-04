@@ -93,7 +93,7 @@ services:
       LOST_PASSWORD_ENABLE: "false"
       NOTIFY_EMAIL_CHANGE: "false"
       MIN_PASSWORD_LENGTH: 10
-      HIBP_ENABLE: "false"
+      HIBP_ENABLE: "true"
       MFA_ENABLE: "true"
       OTP_ISSUER: = 'HBP'
       PROVIDER_SUCCESS_REDIRECT:
